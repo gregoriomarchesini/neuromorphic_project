@@ -3,20 +3,29 @@ from logging import basicConfig, INFO,ERROR
 import pickle as pkl
 import matplotlib.pyplot as plt
 import os,sys
+from tqdm import tqdm
 
 basicConfig(filename='simulator.log', level=ERROR, filemode='w')
 
+###############################
+############ Choose here
+#################################
+save_dataset = False
+
 # create multiple simulations
-number_of_simulations  = 1
-time_samples = 4000
-radius       = 6
+number_of_simulations  = 250
+time_samples = 10000
+radius       = 7
 n_agents     = 7
 counter      = 0
 
 
 complete_dataset = {}
-for i in range(number_of_simulations) :
-    dataset_per_agent = sm.create_dataset(radius=radius, n_agents=n_agents,time_samples=time_samples, show_figure=True)
+for i in tqdm(range(number_of_simulations)) :
+    dataset_per_agent = sm.create_dataset(radius       = radius, 
+                                          n_agents     = n_agents,
+                                          time_samples = time_samples, 
+                                          show_figure  = False)
     
     # saving the numpy arrays in folder 
     for data in  dataset_per_agent.values():
@@ -24,13 +33,14 @@ for i in range(number_of_simulations) :
         counter += 1
 
 
-# directory of the dataset 
-dataset_dir = "dataset"
-os.makedirs(dataset_dir,exist_ok=True)
+if save_dataset :
+    # directory of the dataset 
+    dataset_dir = "dataset"
+    os.makedirs(dataset_dir,exist_ok=True)
 
 
-with open(dataset_dir + "/dataset.pkl", 'wb') as f:
-    pkl.dump(complete_dataset, f)
+    with open(dataset_dir + "/dataset.pkl", 'wb') as f:
+        pkl.dump(complete_dataset, f)
 
 
 

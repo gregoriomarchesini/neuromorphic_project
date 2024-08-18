@@ -9,74 +9,16 @@ with open('dataset/dataset.pkl', 'rb') as f:
     dataset = pickle.load(f)
 
 features = torch.stack([torch.from_numpy(a["feature"]).float() for a in dataset.values()], dim=0)
-labels = torch.stack([torch.from_numpy(a["label"]).float() for a in dataset.values()], dim=0)
+labels   = torch.stack([torch.from_numpy(a["label"]).float() for a in dataset.values()], dim=0)
 
-print(features.shape)
-print(labels.shape)
+print(features.shape, labels.shape)
+
 n_time_points = features[0].shape[1]
+# Apply the standard scaling to the dataset
+scaler   = sm.StandardScaler()
+features = scaler.fit_transform(features[:-1:30,:,:])
+labels   = labels[:-1:30,:,:]
 
-# Define the Network class
-class Network(torch.nn.Module):
-    def __init__(self):
-        super(Network, self).__init__()
-        
-        time_constant1 = torch.nn.Parameter(torch.tensor([200.]))
-        time_constant2 = torch.nn.Parameter(torch.tensor([100.]))
-        time_constant3 = torch.nn.Parameter(torch.tensor([50.]))
-        
-        voltage1 = torch.nn.Parameter(torch.tensor([0.006]))
-        voltage2 = torch.nn.Parameter(torch.tensor([0.08]))
-        voltage3 = torch.nn.Parameter(torch.tensor([0.13]))
-
-        # Define three different neuron layers with varying temporal dynamics
-        lif_params_1 = norse.torch.LIFBoxParameters(tau_mem_inv= time_constant1 ,v_th = voltage1 )
-        lif_params_2 = norse.torch.LIFBoxParameters(tau_mem_inv= time_constant2 ,v_th = voltage2 )
-        lif_params_3 = norse.torch.LIFBoxParameters(tau_mem_inv= time_constant3 ,v_th = voltage3 )
-        
-        # to make it a for loop
-        self.temporal_layer_1 = norse.torch.Lift(norse.torch.LIFBoxCell(p=lif_params_1))
-        self.temporal_layer_2 = norse.torch.Lift(norse.torch.LIFBoxCell(p=lif_params_2))
-        self.temporal_layer_3 = norse.torch.Lift(norse.torch.LIFBoxCell(p=lif_params_3))
-        
-        self.temporal_layer_1.register_parameter("time_constant", time_constant1)
-        self.temporal_layer_1.register_parameter("voltage", voltage1)
-        
-        self.temporal_layer_2.register_parameter("time_constant", time_constant2)
-        self.temporal_layer_2.register_parameter("voltage", voltage2)
-        
-        self.temporal_layer_3.register_parameter("time_constant", time_constant3)
-        self.temporal_layer_3.register_parameter("voltage", voltage3)
-    
-        # First convolutional layer
-        self.conv1 = torch.nn.Conv2d(in_channels=3, out_channels=1, kernel_size=(1, 1), stride=(1, 1), padding=(0, 0))
-        
-        # Third convolutional layer
-        self.linear = torch.nn.Linear(in_features=26, out_features=2)
-        
-    def forward(self, inputs):
-        outputs = []
-        if len(inputs.shape) == 2: # to deal with a batch
-            inputs = inputs.unsqueeze(0)
-        
-        state_1 = None
-        state_2 = None
-        state_3 = None
-
-        for input in inputs:
-            response_1, state_1 = self.temporal_layer_1(input) # change here the state
-            response_2, state_2 = self.temporal_layer_2(input)
-            response_3, state_3 = self.temporal_layer_3(input)
-            output = torch.stack([response_1, response_2, response_3], dim=0)
-            output = self.conv1(output)
-            output = torch.transpose(output, 1, 2)
-            output = self.linear(output)
-            output = torch.transpose(output, 1, 2)
-            outputs += [output.squeeze(0)]
-        
-        if inputs.shape[0] == 1:
-            return outputs[0]
-        else:
-            return torch.stack(outputs, dim=0) # return the batch
 
 class CustomDataset(Dataset):
     def __init__(self, features, labels):
@@ -111,13 +53,13 @@ def loss_fn(predicted_optimal_inputs, computed_optimal_inputs):
         cost += torch.sum((predicted_optimal_inputs[jj] -  computed_optimal_inputs[jj])**2)
     return cost / batch_len / n_time_points # control input error at each time instant
 
-network = Network()
+network = sm.Network(train_mode=True)
 criterion = loss_fn
-optimizer = torch.optim.Adam(network.parameters(), lr=0.002)
+optimizer = torch.optim.Adam(network.parameters(), lr=0.02)
 
 # Training loop with early stopping
-num_epochs = 20
-patience = 3
+num_epochs = 80
+patience   = 5
 best_loss = float('inf')
 epochs_no_improve = 0
 
@@ -159,3 +101,4 @@ with torch.no_grad():
     print(f'Test Loss: {test_loss}')
 
 torch.save(network.state_dict(), 'model.pth')
+scaler.save('scaler_params.pkl')

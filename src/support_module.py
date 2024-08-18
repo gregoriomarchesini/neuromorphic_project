@@ -7,7 +7,9 @@ from math import cos,sin,pi,atan
 import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
-import torch
+import torch 
+import norse
+import pickle
 
 Identifier = int
 Vector     = namedtuple('Vector', ['x', 'y'])
@@ -48,11 +50,11 @@ def bearing_angle_sin_and_cos(vector1:Vector):
 
 class Agent:
     
-    time_step           = 0.008
-    nominal_velocity    = 3
-    max_velocity        = 3 # considered sudden change
+    time_step           = 0.01
+    nominal_velocity    = 0.4
+    max_velocity        = 0.8 # considered sudden change
     alpha               = 1.4
-    collision_radius    = 0.3
+    collision_radius    = 0.8
     
     def __init__(self,identifier: Identifier, position=Vector(0,0), goal_position = Vector(0,0) ) -> None:
         
@@ -73,13 +75,21 @@ class Agent:
         self.optimal_velocity_change = Vector(0,0)
         
         self.logger = getLogger("Agent_"+str(identifier))
+        self.scaler : "StandardScaler"|None = None
         
+    
+    
+    
+    
     def get_position_callback(self,position:Vector,identity:Identifier):
         """ callback to get the state of the other agents"""
         
         # self.logger.info("Received position from agent "+str(identity))
         self.other_agents_position_past[identity]    = self.other_agents_position_current.setdefault(identity,position) # at the first iteration just set the current and past position as the same
         self.other_agents_position_current[identity] = position
+    
+    def set_scaler(self,scaler):
+        self.scaler = scaler
     
     def notify_position(self):
         for callback in self.position_callbacks:
@@ -211,10 +221,16 @@ class Agent:
                 
             input_data += [self.goal_position.x-self.position.x,self.goal_position.y-self.position.y]
             
-            input = torch.tensor(input_data).float()
+            input  = torch.tensor(input_data).float()
+            
+
+            if self.scaler != None :
+                input  = self.scaler.transform(input)
+
+                
             output = self.neuromorphic_controller(input).detach()
                 
-            self.logger.info("NN output : "+str(output))
+
             return Vector(float(output[0]),float(output[1]))
  
     def step(self):
@@ -363,7 +379,7 @@ def create_dataset(radius, n_agents,time_samples, show_figure:bool = False) :
 
 
 
-def simulate_neuromorphic_controller(radius, n_agents,time_samples, controller, which_agents :list[int],show_figure:bool = False) :
+def simulate_neuromorphic_controller(radius, n_agents, time_samples, neuromorphic_controller, neuromorphic_agents :list[int], scaler :"StandardScaler",show_figure:bool = False) :
 
     start_positions  = [[radius * random_between(0.8,1.2) * cos(2*pi/(n_agents)*n + random_between(-10,10)*pi/180),
                         radius * random_between(0.8,1.2) * sin(2*pi/(n_agents)*n + random_between(-10,10)*pi/180) ] for n in range(n_agents)]
@@ -378,8 +394,9 @@ def simulate_neuromorphic_controller(radius, n_agents,time_samples, controller, 
     for n in range(n_agents) :
         a = Agent(identifier=n, position=Vector(*start_positions[n]),goal_position= Vector(*goal_position[n]))
         
-        if n in which_agents:
-            a.set_neuromorphic_controller(controller)
+        if n in neuromorphic_agents:
+            a.set_neuromorphic_controller(neuromorphic_controller)
+            a.set_scaler(scaler)
             
         agents.append(a)
         agent_trajectories[ a.identifier] = {}
@@ -430,3 +447,143 @@ def simulate_neuromorphic_controller(radius, n_agents,time_samples, controller, 
         axs[0].legend()
     
     return dataset_per_agent
+
+
+
+
+
+
+# Define the Network class
+class Network(torch.nn.Module):
+    def __init__(self, train_mode: bool):
+        super(Network, self).__init__()
+        
+        
+        time_constant1 = torch.nn.Parameter(torch.tensor([200.]))
+        time_constant2 = torch.nn.Parameter(torch.tensor([300.]))
+        time_constant3 = torch.nn.Parameter(torch.tensor([600.]))
+        
+        voltage1 = torch.nn.Parameter(torch.tensor([0.006]))
+        voltage2 = torch.nn.Parameter(torch.tensor([0.008]))
+        voltage3 = torch.nn.Parameter(torch.tensor([0.013]))
+
+
+        # Define three different neuron layers with varying temporal dynamics
+        lif_params_1 = norse.torch.LIFBoxParameters(tau_mem_inv= time_constant1 ,v_th = voltage1 )
+        lif_params_2 = norse.torch.LIFBoxParameters(tau_mem_inv= time_constant2 ,v_th = voltage2 )
+        lif_params_3 = norse.torch.LIFBoxParameters(tau_mem_inv= time_constant3 ,v_th = voltage3 )
+        
+        self.temporal_layer_1 = norse.torch.LIFBoxCell(p=lif_params_1)
+        self.temporal_layer_2 = norse.torch.LIFBoxCell(p=lif_params_2)
+        self.temporal_layer_3 = norse.torch.LIFBoxCell(p=lif_params_3)
+        
+        # lifting
+        self.temporal_layer_1_lifted = norse.torch.Lift(self.temporal_layer_1)
+        self.temporal_layer_2_lifted = norse.torch.Lift(self.temporal_layer_2)
+        self.temporal_layer_3_lifted = norse.torch.Lift(self.temporal_layer_3)
+            
+        
+        self.temporal_layer_1.register_parameter("time_constant",time_constant1)
+        self.temporal_layer_1.register_parameter("voltage",voltage1)
+        
+        self.temporal_layer_2.register_parameter("time_constant",time_constant2)
+        self.temporal_layer_2.register_parameter("voltage",voltage2)
+        
+        self.temporal_layer_3.register_parameter("time_constant",time_constant3)
+        self.temporal_layer_3.register_parameter("voltage",voltage3)
+    
+        
+        
+        # First convolutional layer
+        self.conv1 = torch.nn.Conv2d(in_channels=3, out_channels=1, kernel_size=(1, 1), stride=(1, 1), padding=(0, 0))
+        
+        # Third convolutional layer
+        self.linear = torch.nn.Linear(in_features=26,out_features=2)
+        
+        self.train_mode = train_mode
+        self.state_1 = None
+        self.state_2 = None
+        self.state_3 = None
+        
+    def forward(self, inputs:torch.Tensor):
+        
+        
+        outputs = []
+        if inputs.ndim == 2: # to deal with a batch
+            inputs = inputs.unsqueeze(0)
+        if inputs.ndim == 1: 
+            inputs = inputs.unsqueeze(0)
+            inputs = inputs.unsqueeze(2)
+        
+        for input in inputs:
+            input = torch.transpose(input, 0, 1) #[time,state]
+            
+            if self.train_mode:
+                response_1,_ = self.temporal_layer_1_lifted(input) 
+                response_2,_ = self.temporal_layer_2_lifted(input)
+                response_3,_ = self.temporal_layer_3_lifted(input)
+            
+            else : # update current state
+                
+                if self.state_1 == None:
+                    response_1,self.state_1 = self.temporal_layer_1_lifted(input)
+                    response_2,self.state_2 = self.temporal_layer_2_lifted(input)
+                    response_3,self.state_3 = self.temporal_layer_3_lifted(input)
+                else :
+                    response_1,self.state_1 = self.temporal_layer_1(input,self.state_1)
+                    response_2,self.state_2 = self.temporal_layer_2(input,self.state_2)
+                    response_3,self.state_3 = self.temporal_layer_3(input,self.state_3)
+                
+            
+            response_1 = torch.transpose(response_1,0,1)
+            response_2 = torch.transpose(response_2,0,1)
+            response_3 = torch.transpose(response_3,0,1)
+            
+            output = torch.stack([response_1, response_2, response_3], dim=0)
+            output = self.conv1(output)
+            output = torch.transpose(output, 1, 2)
+            output = self.linear(output)
+            output = torch.transpose(output, 1, 2)
+            outputs += [output.squeeze(0)]
+        
+        if inputs.shape[0] == 1:
+            return outputs[0]
+        else:
+            return torch.stack(outputs, dim=0) # return the batch
+       
+
+
+class StandardScaler:
+    def __init__(self):
+        self.mean = None
+        self.std = None
+
+    def fit(self, data):
+        # Compute the mean and standard deviation from the dataset
+        self.mean = torch.mean(data, dim=[0, 2], keepdim=True)
+        self.std = torch.std(data, dim=[0, 2], keepdim=True)
+
+    def transform(self, data:torch.Tensor):
+        if data.ndim == 1: # single vector
+            data = data.view(1, -1)  # Reshape to (1, 26) to match the feature dimension
+            scaled_data = (data - self.mean.squeeze(-1).squeeze(0)) / self.std.squeeze(-1).squeeze(0)
+            return scaled_data.squeeze(0)  # Return to original shape (26,)
+        else:
+            # Handling batch input of shape (n, 26, 5000)
+            return (data - self.mean) / self.std
+
+    def fit_transform(self, data):
+        self.fit(data)
+        return self.transform(data)
+    
+    def save(self, filepath):
+        # Save the mean and std parameters to a file
+        with open(filepath, 'wb') as f:
+            pickle.dump({'mean': self.mean, 'std': self.std}, f)
+
+    def load(self, filepath):
+        # Load the mean and std parameters from a file
+        with open(filepath, 'rb') as f:
+            params = pickle.load(f)
+            self.mean = params['mean']
+            self.std = params['std']
