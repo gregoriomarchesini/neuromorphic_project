@@ -2,9 +2,11 @@ import pickle
 import norse
 import torch
 import matplotlib.pyplot as plt
-from torch.utils.data import Dataset, DataLoader, random_split
+from torch.utils.data import  DataLoader, random_split
 import support_module as sm
 
+
+save_training = False
 with open('dataset/dataset.pkl', 'rb') as f:
     dataset = pickle.load(f)
 
@@ -14,27 +16,13 @@ labels   = torch.stack([torch.from_numpy(a["label"]).float() for a in dataset.va
 print(features.shape, labels.shape)
 
 n_time_points = features[0].shape[1]
-# Apply the standard scaling to the dataset
 scaler   = sm.StandardScaler()
-features = scaler.fit_transform(features[:-1:30,:,:])
-labels   = labels[:-1:30,:,:]
+features = scaler.fit_transform(features)
+labels   = labels
 
-
-class CustomDataset(Dataset):
-    def __init__(self, features, labels):
-        self.features = features
-        self.labels = labels
-
-    def __len__(self):
-        return len(self.features)
-
-    def __getitem__(self, idx):
-        feature = self.features[idx]
-        label = self.labels[idx]
-        return feature, label
 
 # Create the dataset
-dataset = CustomDataset(features, labels)
+dataset = sm.CustomDataset(features, labels)
 
 # Split the dataset into train and test sets
 train_size = int(0.8 * len(dataset))
@@ -100,5 +88,6 @@ with torch.no_grad():
     test_loss /= len(test_loader)
     print(f'Test Loss: {test_loss}')
 
-torch.save(network.state_dict(), 'model.pth')
-scaler.save('scaler_params.pkl')
+if save_training :
+    torch.save(network.state_dict(), 'model.pth')
+    scaler.save('scaler_params.pkl')

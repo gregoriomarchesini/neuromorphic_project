@@ -13,7 +13,7 @@ basicConfig(filename='simulator.log', level=ERROR, filemode='w')
 save_dataset = False
 
 # create multiple simulations
-number_of_simulations  = 250
+number_of_simulations  = 1
 time_samples = 10000
 radius       = 7
 n_agents     = 7
@@ -25,7 +25,7 @@ for i in tqdm(range(number_of_simulations)) :
     dataset_per_agent = sm.create_dataset(radius       = radius, 
                                           n_agents     = n_agents,
                                           time_samples = time_samples, 
-                                          show_figure  = False)
+                                          show_figure  = True)
     
     # saving the numpy arrays in folder 
     for data in  dataset_per_agent.values():

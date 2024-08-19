@@ -1,4 +1,3 @@
-import norse
 import torch
 import matplotlib.pyplot as plt
 import support_module as sm

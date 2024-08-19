@@ -6,6 +6,7 @@ import random
 from math import cos,sin,pi,atan
 import numpy as np
 import matplotlib.pyplot as plt
+from torch.utils.data import Dataset
 from tqdm import tqdm
 import torch 
 import norse
@@ -372,8 +373,14 @@ def create_dataset(radius, n_agents,time_samples, show_figure:bool = False) :
             axs[0].scatter(x[-1],y[-1],c="red")
             axs[0].scatter(x[0],y[0],c="blue")
             
-            axs[1].imshow(dataset_per_agent[agent.identifier]["feature"].T,aspect='auto')
+            axs[1].imshow(dataset_per_agent[agent.identifier]["feature"],aspect='auto')
         
+        axs[0].grid()
+        axs[0].set_xlabel("m")
+        axs[0].set_ylabel("m")
+        
+        axs[1].set_xlabel("steps")
+        axs[1].set_ylabel("feature")
     
     return dataset_per_agent
 
@@ -505,6 +512,10 @@ class Network(torch.nn.Module):
         self.state_2 = None
         self.state_3 = None
         
+        self._latest_reponse1_for_plot = None
+        self._latest_reponse2_for_plot = None
+        self._latest_reponse3_for_plot = None
+        
     def forward(self, inputs:torch.Tensor):
         
         
@@ -522,6 +533,10 @@ class Network(torch.nn.Module):
                 response_1,_ = self.temporal_layer_1_lifted(input) 
                 response_2,_ = self.temporal_layer_2_lifted(input)
                 response_3,_ = self.temporal_layer_3_lifted(input)
+                
+                self._latest_reponse1_for_plot = response_1
+                self._latest_reponse2_for_plot = response_2
+                self._latest_reponse3_for_plot = response_3
             
             else : # update current state
                 
@@ -529,10 +544,14 @@ class Network(torch.nn.Module):
                     response_1,self.state_1 = self.temporal_layer_1_lifted(input)
                     response_2,self.state_2 = self.temporal_layer_2_lifted(input)
                     response_3,self.state_3 = self.temporal_layer_3_lifted(input)
+
+        
+        
                 else :
                     response_1,self.state_1 = self.temporal_layer_1(input,self.state_1)
                     response_2,self.state_2 = self.temporal_layer_2(input,self.state_2)
                     response_3,self.state_3 = self.temporal_layer_3(input,self.state_3)
+
                 
             
             response_1 = torch.transpose(response_1,0,1)
@@ -550,7 +569,22 @@ class Network(torch.nn.Module):
             return outputs[0]
         else:
             return torch.stack(outputs, dim=0) # return the batch
-       
+    
+    def plot_latest_responses(self):
+        fig, axs = plt.subplots(3)
+        print(self._latest_reponse1_for_plot.shape)
+        axs[0].imshow(self._latest_reponse1_for_plot.detach().numpy().T,aspect='auto')
+        axs[1].imshow(self._latest_reponse2_for_plot.detach().numpy().T,aspect='auto')
+        axs[2].imshow(self._latest_reponse3_for_plot.detach().numpy().T,aspect='auto')
+        
+        
+        axs[0].set_ylabel("spiking response")
+        axs[1].set_ylabel("spiking response")
+        axs[2].set_ylabel("spiking response")
+        
+        axs[2].set_xlabel("steps")
+        
+        plt.show()
 
 
 class StandardScaler:
@@ -587,3 +621,17 @@ class StandardScaler:
             params = pickle.load(f)
             self.mean = params['mean']
             self.std = params['std']
+            
+
+class CustomDataset(Dataset):
+    def __init__(self, features, labels):
+        self.features = features
+        self.labels = labels
+
+    def __len__(self):
+        return len(self.features)
+
+    def __getitem__(self, idx):
+        feature = self.features[idx]
+        label = self.labels[idx]
+        return feature, label
