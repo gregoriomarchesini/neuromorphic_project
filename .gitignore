@@ -1,4 +1,3 @@
-dataset/
 .venv/
-.vscode/
 __pycache__/
+dataset/
