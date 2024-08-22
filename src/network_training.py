@@ -18,8 +18,8 @@ features = torch.stack([torch.from_numpy(a["feature"]).float() for a in dataset.
 labels   = torch.stack([torch.from_numpy(a["label"]).float() for a in dataset.values()], dim=0)
 
 print(features.shape, labels.shape)
-features = features[random.sample(range(features.shape[0]), features.shape[0]),:,::2]
-labels   = labels[random.sample(range(labels.shape[0]), features.shape[0]),:,::2]
+features = features[random.sample(range(features.shape[0]), 300),:,::3]
+labels   = labels[random.sample(range(labels.shape[0]), 300),:,::3]
 
 n_time_points = features[0].shape[1]
 
@@ -45,7 +45,7 @@ train_dataset.dataset.features[train_dataset.indices] = train_features
 test_dataset.dataset.features[test_dataset.indices] = test_features
 
 # Create data loaders
-train_loader = DataLoader(train_dataset, batch_size=4, shuffle=True)
+train_loader = DataLoader(train_dataset, batch_size=10, shuffle=True)
 test_loader = DataLoader(test_dataset, batch_size=30, shuffle=True)
 
 def loss_fn(predicted_optimal_inputs, computed_optimal_inputs):
@@ -62,7 +62,7 @@ optimizer = torch.optim.Adam(network.parameters(), lr=0.02)
 
 # Training loop with early stopping
 num_epochs = 80
-patience   = 20
+patience   = 10
 best_loss = float('inf')
 epochs_no_improve = 0
 loss_history = []
@@ -105,7 +105,7 @@ if save_training:
     dt_string = time.strftime("%Y%m%d-%H%M%S")
     os.makedirs(parameters_folder, exist_ok=True)
     
-    torch.save(best_model_state_dict, parameters_folder + '/model_best_' + dt_string + '.pth')
-    scaler.save(parameters_folder + '/scaler_params_' + dt_string + '.pkl')
-    with open(parameters_folder + '/training_loss_profile_' + dt_string + '.pkl', 'wb') as file:
+    torch.save(best_model_state_dict, parameters_folder + '/model_best_more_layers' + dt_string + '.pth')
+    scaler.save(parameters_folder + '/scaler_params_more_layers_' + dt_string + '.pkl')
+    with open(parameters_folder + '/training_loss_profile_more_layers' + dt_string + '.pkl', 'wb') as file:
         pickle.dump(loss_history, file)

@@ -504,8 +504,10 @@ class Network(torch.nn.Module):
         # First convolutional layer
         self.conv1 = torch.nn.Conv2d(in_channels=3, out_channels=1, kernel_size=(1, 1), stride=(1, 1), padding=(0, 0))
         
-        # Third convolutional layer
-        self.linear = torch.nn.Linear(in_features=26,out_features=2)
+        # linear layers
+        self.linear1 = torch.nn.Linear(in_features=26, out_features=12)
+        self.linear2 = torch.nn.Linear(in_features=12, out_features=4)
+        self.linear3 = torch.nn.Linear(in_features=4, out_features=2)
         
         self.train_mode = train_mode
         self.state_1 = None
@@ -561,8 +563,13 @@ class Network(torch.nn.Module):
             output = torch.stack([response_1, response_2, response_3], dim=0)
             output = self.conv1(output)
             output = torch.transpose(output, 1, 2)
-            output = self.linear(output)
+            
+            
+            output = self.linear1(output)
+            output = self.linear2(output)
+            output = self.linear3(output)
             output = torch.transpose(output, 1, 2)
+            
             outputs += [output.squeeze(0)]
         
         if inputs.shape[0] == 1:
