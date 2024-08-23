@@ -279,6 +279,8 @@ def relative_position_from_goal(agent_id:Identifier,agents:list[Agent],agent_tra
             for time in agent_trajectories[agent_id].keys():
                 data.append([agent.goal_position.x-agent_trajectories[agent_id][time].x,
                              agent.goal_position.y-agent_trajectories[agent_id][time].y])
+        break 
+    
     return [data]           
 
 def relative_position_from_goal_other_agents(agent_id:Identifier,agents:list[Agent],agent_trajectories:dict, agent_velocities:dict):
@@ -543,11 +545,10 @@ class Network(torch.nn.Module):
             else : # update current state
                 
                 if self.state_1 == None:
-                    response_1,self.state_1 = self.temporal_layer_1_lifted(input)
-                    response_2,self.state_2 = self.temporal_layer_2_lifted(input)
-                    response_3,self.state_3 = self.temporal_layer_3_lifted(input)
+                    response_1,self.state_1 = self.temporal_layer_1(input)
+                    response_2,self.state_2 = self.temporal_layer_2(input)
+                    response_3,self.state_3 = self.temporal_layer_3(input)
 
-        
         
                 else :
                     response_1,self.state_1 = self.temporal_layer_1(input,self.state_1)

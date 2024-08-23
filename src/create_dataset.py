@@ -10,10 +10,10 @@ basicConfig(filename='simulator.log', level=ERROR, filemode='w')
 ###############################
 ############ Choose here
 #################################
-save_dataset = False
+save_dataset = True
 
 # create multiple simulations
-number_of_simulations  = 1
+number_of_simulations  = 300
 time_samples = 10000
 radius       = 7
 n_agents     = 7

@@ -13,13 +13,14 @@ save_training = True
 with open('dataset/dataset.pkl', 'rb') as f:
     dataset = pickle.load(f)
 
-
+number_of_samples = 1300
 features = torch.stack([torch.from_numpy(a["feature"]).float() for a in dataset.values()], dim=0)
 labels   = torch.stack([torch.from_numpy(a["label"]).float() for a in dataset.values()], dim=0)
 
 print(features.shape, labels.shape)
-features = features[random.sample(range(features.shape[0]), 300),:,::3]
-labels   = labels[random.sample(range(labels.shape[0]), 300),:,::3]
+sample_features_idx = random.sample(range(features.shape[0]), number_of_samples)  # down sample features
+features = features[sample_features_idx,:,::2]
+labels   = labels[sample_features_idx,:,::2]
 
 n_time_points = features[0].shape[1]
 
