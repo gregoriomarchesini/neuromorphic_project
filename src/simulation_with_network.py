@@ -6,9 +6,9 @@ import support_module as sm
 # Create an instance of the Network class
 network = sm.Network(train_mode=False)
 # load the model from file
-network.load_state_dict(torch.load('trained_model_parameters/model_best_more_layers20240823-023032.pth'))
+network.load_state_dict(torch.load('trained_model_parameters/model_best_more_layers20240825-003011.pth'))
 scaler = sm.StandardScaler()
-scaler.load('trained_model_parameters/scaler_params_more_layers_20240823-023032.pkl')
+scaler.load('trained_model_parameters/scaler_params_more_layers_20240825-003011.pkl')
 
 
 # create multiple simulations
@@ -22,7 +22,7 @@ sm.simulate_neuromorphic_controller(neuromorphic_controller=network,
                                     scaler       =scaler,
                                     radius       = radius,
                                     n_agents     = n_agents,
-                                    neuromorphic_agents =[2],
+                                    neuromorphic_agents =[4],
                                     show_figure         =True)
 
 plt.show()

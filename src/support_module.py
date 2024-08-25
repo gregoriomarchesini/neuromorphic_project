@@ -435,10 +435,10 @@ def simulate_neuromorphic_controller(radius, n_agents, time_samples, neuromorphi
             agents_optimal_input[agent.identifier][steps*agent.time_step] = agent.optimal_input
         
 
-    dataset_per_agent = prepare_dataset(agents=agents,
-                                           agent_trajectories=agent_trajectories,
-                                           agent_velocities = agent_velocities,
-                                           agents_input = agents_optimal_input)
+    #dataset_per_agent = prepare_dataset(agents=agents,
+      #                                     agent_trajectories=agent_trajectories,
+       #                                    agent_velocities = agent_velocities,
+       #                                    agents_input = agents_optimal_input)
 
     if show_figure :
         fig, axs = plt.subplots(2)
@@ -455,7 +455,7 @@ def simulate_neuromorphic_controller(radius, n_agents, time_samples, neuromorphi
             # axs[1].imshow(dataset_per_agent[agent.identifier]["feature"].T,aspect='auto')
         axs[0].legend()
     
-    return dataset_per_agent
+    #return dataset_per_agent
 
 
 
