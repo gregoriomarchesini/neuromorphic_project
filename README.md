@@ -1,4 +1,4 @@
-# Neuromorphic Collsion Avoidance
+# Neuromorphic Collision Avoidance
 
 ```
 
