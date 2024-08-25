@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import pickle
 # upload the training loss data
 
-path = "trained_model_parameters/training_loss_profile20240820-123235.pkl"
+path = "trained_model_parameters/training_loss_profile_more_layers20240825-003011.pkl"
 with open(path , 'rb') as f:
     training_loss = pickle.load(f)
 

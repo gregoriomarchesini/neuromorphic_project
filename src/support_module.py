@@ -3,11 +3,11 @@ from   collections import namedtuple
 from   scipy.optimize import  LinearConstraint, minimize
 from   logging import getLogger
 import random
-from math import cos,sin,pi,atan
+from   math import cos,sin,pi,atan
 import numpy as np
 import matplotlib.pyplot as plt
-from torch.utils.data import Dataset
-from tqdm import tqdm
+from   torch.utils.data import Dataset
+from   tqdm import tqdm
 import torch 
 import norse
 import pickle
@@ -203,7 +203,7 @@ class Agent:
                 self.logger.info("Solution found... speed change : "+str(res.x))
                 return Vector(res.x[0],res.x[1])
             else :
-                self.logger.error("No solution found")
+                self.logger.info("No solution found. Stopping agent till next loop ...")
                 return Vector(0,0)
        
         else:
